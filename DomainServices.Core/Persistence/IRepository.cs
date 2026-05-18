@@ -13,6 +13,7 @@ public interface IRepository<TModel> where TModel : class, ICoreDomainModel
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<TModel>> SearchAllAsync(
+        Guid enterpriseId,
         string searchTerm,
         QueryParameterModel? query = null,
         CancellationToken cancellationToken = default);

@@ -17,4 +17,15 @@ public class QueryParameterModel
     public int Skip => Math.Max(0, (Page - 1) * PageSize);
 
     public int Take => Math.Max(1, PageSize);
+
+    public QueryParameterModel Clone() =>
+        new()
+        {
+            Page = Page,
+            PageSize = PageSize,
+            OrderBy = OrderBy,
+            OrderDescending = OrderDescending,
+            SearchTerm = SearchTerm,
+            Filters = new List<FilterModel>(Filters)
+        };
 }

@@ -85,7 +85,7 @@ public class DomainServiceClient<TModel> : IServiceClient<TModel>
         QueryParameterModel? query = null,
         CancellationToken cancellationToken = default)
     {
-        var effective = query ?? new QueryParameterModel();
+        var effective = query?.Clone() ?? new QueryParameterModel();
         effective.SearchTerm = searchTerm;
         var url = BuildUrl($"{enterpriseId}/search", effective);
         return await SendListAsync(HttpMethod.Get, url, content: null, cancellationToken).ConfigureAwait(false);
@@ -224,6 +224,11 @@ public class DomainServiceClient<TModel> : IServiceClient<TModel>
         if (!string.IsNullOrWhiteSpace(query.SearchTerm))
         {
             parts.Add($"searchTerm={Uri.EscapeDataString(query.SearchTerm)}");
+        }
+
+        foreach (var filter in query.Filters)
+        {
+            parts.Add($"filter={Uri.EscapeDataString(filter.Encode())}");
         }
 
         return string.Join("&", parts);

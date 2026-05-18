@@ -75,7 +75,7 @@ public abstract class DomainService<TModel> : IDomainService<TModel>
         QueryParameterModel? query = null,
         CancellationToken cancellationToken = default)
     {
-        var result = await Repository.SearchAllAsync(searchTerm, query, cancellationToken).ConfigureAwait(false);
+        var result = await Repository.SearchAllAsync(enterpriseId, searchTerm, query, cancellationToken).ConfigureAwait(false);
         return BaseResponse<IReadOnlyList<TModel>>.Ok(result);
     }
 
@@ -165,10 +165,14 @@ public abstract class DomainService<TModel> : IDomainService<TModel>
         string userName,
         CancellationToken cancellationToken = default)
     {
+        var aggregateValidator = new ModelValidator();
+        var index = 0;
+
         foreach (var model in models)
         {
             model.EnterpriseId = enterpriseId;
-            if (model.Id == Guid.Empty)
+            var isNew = model.Id == Guid.Empty;
+            if (isNew)
             {
                 model.SetCreate(userName);
             }
@@ -176,6 +180,23 @@ public abstract class DomainService<TModel> : IDomainService<TModel>
             {
                 model.SetUpdate(userName);
             }
+
+            var validator = isNew ? Validate(model) : ValidateUpdate(model.Id, model);
+            if (!validator.IsValid)
+            {
+                foreach (var error in validator.Errors)
+                {
+                    aggregateValidator.AddError($"[{index}].{error.Property}", error.Message);
+                }
+            }
+            index++;
+        }
+
+        if (!aggregateValidator.IsValid)
+        {
+            return BaseResponse<int>.BadRequest(
+                aggregateValidator.ErrorMessages,
+                aggregateValidator.Errors.Select(e => $"{e.Property}: {e.Message}"));
         }
 
         var count = await Repository.SaveAsync(models, cancellationToken).ConfigureAwait(false);
