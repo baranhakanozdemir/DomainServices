@@ -58,6 +58,25 @@ Generic abstractions for service-oriented and domain-driven architectures in .NE
 - **Serializer-agnostic source** — no `[JsonProperty]`/`[JsonPropertyName]` attributes on contracts; clients can wire in any serializer
 - **Modern .NET** — `net10.0`, nullable enabled, `DateTimeOffset` timestamps, `LangVersion=latest`, `TreatWarningsAsErrors=true`
 
+## Install
+
+Packages are published to **GitHub Packages** on every `v*` tag. To consume from a downstream project:
+
+1. Add the GitHub NuGet source (read access is anonymous for public repos, but `dotnet` still needs the source registered). One-time, project-local:
+
+   ```
+   dotnet nuget add source "https://nuget.pkg.github.com/baranhakanozdemir/index.json" \
+     --name "baranhakanozdemir-github"
+   ```
+
+2. Install the package:
+
+   ```
+   dotnet add package DomainServices.Core --version 0.1.0
+   ```
+
+The signed `.nupkg` + `.snupkg` are also attached to each [GitHub Release](https://github.com/baranhakanozdemir/DomainServices/releases) for download.
+
 ## License
 
 MIT
