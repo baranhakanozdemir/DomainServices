@@ -1,1 +1,3 @@
-<Solution />
+<Solution>
+  <Project Path="DomainServices.Core/DomainServices.Core.csproj" />
+</Solution>
