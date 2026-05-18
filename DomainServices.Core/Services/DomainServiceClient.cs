@@ -273,10 +273,13 @@ public class DomainServiceClient<TModel> : IServiceClient<TModel>
             return await BuildErrorAsync<TModel>(response, cancellationToken).ConfigureAwait(false);
         }
 
+        if (response.StatusCode == HttpStatusCode.NoContent || response.Content.Headers.ContentLength == 0)
+        {
+            return new BaseResponse<TModel>(response.StatusCode, default);
+        }
+
         var data = await response.Content.ReadFromJsonAsync<TModel>(_jsonOptions, cancellationToken).ConfigureAwait(false);
-        return data is null
-            ? BaseResponse<TModel>.NotFound()
-            : new BaseResponse<TModel>(response.StatusCode, data);
+        return new BaseResponse<TModel>(response.StatusCode, data);
     }
 
     private static async Task<BaseResponse<T>> BuildErrorAsync<T>(HttpResponseMessage response, CancellationToken cancellationToken)
