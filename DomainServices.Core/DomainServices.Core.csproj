@@ -13,7 +13,7 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>DomainServices.Core</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <Authors>Baran Ozdemir</Authors>
     <Description>Generic abstractions for service-oriented and domain-driven architectures: core models, validation, party/person, paged queries, base responses, repository and domain-service contracts, and a generic HTTP service client.</Description>
     <PackageTags>domain-driven-design;ddd;service-oriented;abstractions;repository;domain-service</PackageTags>
