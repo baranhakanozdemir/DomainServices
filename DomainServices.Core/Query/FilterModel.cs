@@ -6,6 +6,15 @@ public sealed class FilterModel
 {
     public FilterModel(string field, FilterOperator @operator, object? value)
     {
+        if (string.IsNullOrWhiteSpace(field))
+        {
+            throw new ArgumentException("Field cannot be null or whitespace.", nameof(field));
+        }
+        if (field.Contains(':'))
+        {
+            throw new ArgumentException("Field cannot contain ':' (reserved as wire-format separator).", nameof(field));
+        }
+
         Field = field;
         Operator = @operator;
         Value = value;
