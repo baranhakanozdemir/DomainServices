@@ -133,6 +133,13 @@ public abstract class DomainService<TModel> : IDomainService<TModel>
             return BaseResponse<TModel>.NotFound($"{typeof(TModel).Name} '{id}' not found.");
         }
 
+        if (model.EnterpriseId != Guid.Empty && model.EnterpriseId != existing.EnterpriseId)
+        {
+            return BaseResponse<TModel>.BadRequest(
+                $"EnterpriseId mismatch: cannot change tenant on update of '{id}'.");
+        }
+        model.EnterpriseId = existing.EnterpriseId;
+
         var updated = await Repository.UpdateAsync(model, cancellationToken).ConfigureAwait(false);
         return BaseResponse<TModel>.Updated(updated);
     }
@@ -170,14 +177,28 @@ public abstract class DomainService<TModel> : IDomainService<TModel>
 
         foreach (var model in models)
         {
-            model.EnterpriseId = enterpriseId;
             var isNew = model.Id == Guid.Empty;
             if (isNew)
             {
+                model.EnterpriseId = enterpriseId;
                 model.SetCreate(userName);
             }
             else
             {
+                var existing = await Repository.GetAsync(model.Id, cancellationToken).ConfigureAwait(false);
+                if (existing is null)
+                {
+                    aggregateValidator.AddError($"[{index}].Id", $"{typeof(TModel).Name} '{model.Id}' not found.");
+                    index++;
+                    continue;
+                }
+                if (existing.EnterpriseId != enterpriseId)
+                {
+                    aggregateValidator.AddError($"[{index}].EnterpriseId", $"'{model.Id}' belongs to a different tenant.");
+                    index++;
+                    continue;
+                }
+                model.EnterpriseId = existing.EnterpriseId;
                 model.SetUpdate(userName);
             }
 
