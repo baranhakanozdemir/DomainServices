@@ -11,10 +11,7 @@ namespace DomainServices.Core.Services;
 public class ReadOnlyDomainServiceClient<TModel> : IReadOnlyDomainServiceClient<TModel>
     where TModel : class, ICoreDomainModel
 {
-    protected static readonly JsonSerializerOptions DefaultJsonOptions = new(JsonSerializerDefaults.Web)
-    {
-        PropertyNameCaseInsensitive = true
-    };
+    private static readonly JsonSerializerOptions DefaultJsonOptions = CreateDefaultJsonOptions();
 
     protected HttpClient HttpClient { get; }
 
@@ -25,8 +22,18 @@ public class ReadOnlyDomainServiceClient<TModel> : IReadOnlyDomainServiceClient<
     public ReadOnlyDomainServiceClient(HttpClient httpClient, string? resourcePath = null, JsonSerializerOptions? jsonOptions = null)
     {
         HttpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-        JsonOptions = jsonOptions ?? DefaultJsonOptions;
+        JsonOptions = jsonOptions ?? new JsonSerializerOptions(DefaultJsonOptions);
         ResourcePath = NormalizeResourcePath(resourcePath ?? typeof(TModel).Name);
+    }
+
+    private static JsonSerializerOptions CreateDefaultJsonOptions()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        };
+        options.MakeReadOnly();
+        return options;
     }
 
     public Uri BaseAddress => HttpClient.BaseAddress
