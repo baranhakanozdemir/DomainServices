@@ -4,7 +4,7 @@ using DomainServices.Core.Responses;
 
 namespace DomainServices.Core.Services;
 
-public interface IReadOnlyServiceClient<TModel> where TModel : class, ICoreDomainModel
+public interface IReadOnlyDomainServiceClient<TModel> where TModel : class, ICoreDomainModel
 {
     Uri BaseAddress { get; }
 

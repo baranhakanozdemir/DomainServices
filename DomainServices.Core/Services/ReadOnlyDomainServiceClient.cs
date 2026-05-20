@@ -8,7 +8,7 @@ using DomainServices.Core.Responses;
 
 namespace DomainServices.Core.Services;
 
-public class ReadOnlyDomainServiceClient<TModel> : IReadOnlyServiceClient<TModel>
+public class ReadOnlyDomainServiceClient<TModel> : IReadOnlyDomainServiceClient<TModel>
     where TModel : class, ICoreDomainModel
 {
     protected static readonly JsonSerializerOptions DefaultJsonOptions = new(JsonSerializerDefaults.Web)

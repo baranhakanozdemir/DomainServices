@@ -6,7 +6,7 @@ using DomainServices.Core.Validation;
 
 namespace DomainServices.Core.Services;
 
-public class DomainServiceClient<TModel> : ReadOnlyDomainServiceClient<TModel>, IServiceClient<TModel>
+public class DomainServiceClient<TModel> : ReadOnlyDomainServiceClient<TModel>, IDomainServiceClient<TModel>
     where TModel : class, ICoreDomainModel
 {
     public DomainServiceClient(HttpClient httpClient, string? resourcePath = null, JsonSerializerOptions? jsonOptions = null)
