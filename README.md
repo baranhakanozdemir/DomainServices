@@ -72,7 +72,7 @@ Packages are published to **GitHub Packages** on every `v*` tag. To consume from
 2. Install the package:
 
    ```
-   dotnet add package DomainServices.Core --version 0.2.0
+   dotnet add package DomainServices.Core --version 0.2.1
    ```
 
 The signed `.nupkg` + `.snupkg` are also attached to each [GitHub Release](https://github.com/baranhakanozdemir/DomainServices/releases) for download.

@@ -26,15 +26,15 @@ public class ReadOnlyDomainServiceClient<TModel> : IReadOnlyDomainServiceClient<
         ResourcePath = NormalizeResourcePath(resourcePath ?? typeof(TModel).Name);
     }
 
-    private static JsonSerializerOptions CreateDefaultJsonOptions()
-    {
-        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+    // The shared default options instance is private and only used as the source
+    // for new JsonSerializerOptions(DefaultJsonOptions) copies; consumers never touch
+    // it directly, so mutation isolation comes from the copy, not from MakeReadOnly().
+    // MakeReadOnly() without TypeInfoResolver throws on .NET 10 (see issue #13).
+    private static JsonSerializerOptions CreateDefaultJsonOptions() =>
+        new(JsonSerializerDefaults.Web)
         {
             PropertyNameCaseInsensitive = true
         };
-        options.MakeReadOnly();
-        return options;
-    }
 
     public Uri BaseAddress => HttpClient.BaseAddress
         ?? throw new InvalidOperationException("HttpClient.BaseAddress is not configured.");
