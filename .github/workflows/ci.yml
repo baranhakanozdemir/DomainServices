@@ -22,13 +22,13 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Restore
-        run: dotnet restore DomainServices.Core/DomainServices.Core.csproj
+        run: dotnet restore DomainServices.slnx
 
       - name: Build
-        run: dotnet build DomainServices.Core/DomainServices.Core.csproj --configuration Release --no-restore
+        run: dotnet build DomainServices.slnx --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test DomainServices.Core/DomainServices.Core.csproj --configuration Release --no-build --verbosity normal
+        run: dotnet test DomainServices.slnx --configuration Release --no-build --verbosity normal
 
       - name: Pack
         run: dotnet pack DomainServices.Core/DomainServices.Core.csproj --configuration Release --no-build --output artifacts
