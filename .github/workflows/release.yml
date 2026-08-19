@@ -1,6 +1,13 @@
 name: Release
 
+# Triggers:
+#  - CI completed successfully on main: auto-derive version from csproj, tag, publish
+#  - Manual tag push (v*): publish from that tag (hotfix / backfill path)
 on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
   push:
     tags:
       - 'v*'
@@ -11,11 +18,19 @@ permissions:
 
 jobs:
   release:
-    name: pack-and-publish
+    name: tag-pack-publish
+    # CI-completed path: require success and main branch.
+    # Tag-push path: always run.
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
           fetch-depth: 0
 
       - name: Setup .NET
@@ -23,32 +38,83 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Derive version from tag
+      - name: Resolve version and tag
         id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        run: |
+          if [ "${{ github.event_name }}" == "push" ]; then
+            tag="${GITHUB_REF_NAME}"
+            version="${tag#v}"
+          else
+            version=$(grep -oPm1 "(?<=<Version>)[^<]+" DomainServices.Core/DomainServices.Core.csproj)
+            tag="v$version"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "::notice::Resolved version=$version tag=$tag (event=${{ github.event_name }})"
 
       - name: Verify csproj version matches tag
         run: |
           csproj_version=$(grep -oPm1 "(?<=<Version>)[^<]+" DomainServices.Core/DomainServices.Core.csproj)
-          tag_version="${{ steps.version.outputs.version }}"
-          if [ "$csproj_version" != "$tag_version" ]; then
-            echo "::error::csproj <Version> ($csproj_version) does not match tag ($tag_version). Bump the csproj before tagging."
+          if [ "$csproj_version" != "${{ steps.version.outputs.version }}" ]; then
+            echo "::error::csproj <Version> ($csproj_version) does not match resolved version (${{ steps.version.outputs.version }})."
             exit 1
           fi
 
+      - name: Check if tag already exists
+        id: tag_check
+        run: |
+          if git ls-remote --tags origin "refs/tags/${{ steps.version.outputs.tag }}" | grep -q .; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Tag ${{ steps.version.outputs.tag }} already exists on origin."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip release (no version bump)
+        if: |
+          steps.tag_check.outputs.exists == 'true' &&
+          github.event_name == 'workflow_run'
+        run: |
+          echo "::notice::No release: csproj <Version> ${{ steps.version.outputs.version }} already tagged. Bump <Version> in a PR to trigger the next release."
+
       - name: Restore
+        if: |
+          steps.tag_check.outputs.exists == 'false' ||
+          github.event_name == 'push'
         run: dotnet restore DomainServices.Core/DomainServices.Core.csproj
 
       - name: Build
+        if: |
+          steps.tag_check.outputs.exists == 'false' ||
+          github.event_name == 'push'
         run: dotnet build DomainServices.Core/DomainServices.Core.csproj --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test DomainServices.Core/DomainServices.Core.csproj --configuration Release --no-build --verbosity normal
+        if: |
+          steps.tag_check.outputs.exists == 'false' ||
+          github.event_name == 'push'
+        run: dotnet test DomainServices.slnx --configuration Release --no-build --verbosity normal
 
       - name: Pack
+        if: |
+          steps.tag_check.outputs.exists == 'false' ||
+          github.event_name == 'push'
         run: dotnet pack DomainServices.Core/DomainServices.Core.csproj --configuration Release --no-build --output artifacts
 
+      - name: Create and push tag (auto-release only)
+        if: |
+          steps.tag_check.outputs.exists == 'false' &&
+          github.event_name == 'workflow_run'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.version.outputs.tag }}" -m "Release ${{ steps.version.outputs.tag }} (auto-tagged from csproj)"
+          git push origin "${{ steps.version.outputs.tag }}"
+
       - name: Publish to GitHub Packages
+        if: |
+          steps.tag_check.outputs.exists == 'false' ||
+          github.event_name == 'push'
         run: |
           dotnet nuget push 'artifacts/*.nupkg' \
             --api-key "${{ secrets.GITHUB_TOKEN }}" \
@@ -56,13 +122,16 @@ jobs:
             --skip-duplicate
 
       - name: Attach packages to GitHub Release
+        if: |
+          steps.tag_check.outputs.exists == 'false' ||
+          github.event_name == 'push'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" artifacts/*.nupkg artifacts/*.snupkg --clobber
+          if gh release view "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
+            gh release upload "${{ steps.version.outputs.tag }}" artifacts/*.nupkg artifacts/*.snupkg --clobber
           else
-            gh release create "$GITHUB_REF_NAME" artifacts/*.nupkg artifacts/*.snupkg \
-              --title "$GITHUB_REF_NAME" \
+            gh release create "${{ steps.version.outputs.tag }}" artifacts/*.nupkg artifacts/*.snupkg \
+              --title "${{ steps.version.outputs.tag }}" \
               --generate-notes
           fi

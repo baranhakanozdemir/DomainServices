@@ -77,6 +77,12 @@ Packages are published to **GitHub Packages** on every `v*` tag. To consume from
 
 The signed `.nupkg` + `.snupkg` are also attached to each [GitHub Release](https://github.com/baranhakanozdemir/DomainServices/releases) for download.
 
+## Releasing
+
+Releases are automatic: when a PR that bumps `<Version>` in `DomainServices.Core.csproj` is merged into `main`, CI runs and on success the release workflow auto-creates the matching `vX.Y.Z` tag, packs the project, publishes to GitHub Packages, and creates the GH Release. **No version bump → no release.** Bundle as many feature PRs as you want; release only when you bump.
+
+Manual override: push a `v*` tag from local for backfills or hotfixes — the same workflow handles it.
+
 ## License
 
 MIT
