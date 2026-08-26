@@ -4,6 +4,12 @@ name: Release
 #  - CI completed successfully on main: auto-derive version from csproj, tag, publish
 #  - Manual tag push (v*): publish from that tag (hotfix / backfill path)
 on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing v* tag to backfill to public package feeds. Defaults to the csproj version tag.'
+        required: false
+        type: string
   workflow_run:
     workflows: [CI]
     types: [completed]
@@ -23,6 +29,7 @@ jobs:
     # Tag-push path: always run.
     if: |
       github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.head_branch == 'main')
@@ -30,7 +37,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag != '' && inputs.tag || (github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref) }}
           fetch-depth: 0
 
       - name: Setup .NET
@@ -40,9 +47,14 @@ jobs:
 
       - name: Resolve version and tag
         id: version
+        env:
+          REQUESTED_TAG: ${{ inputs.tag }}
         run: |
           if [ "${{ github.event_name }}" == "push" ]; then
             tag="${GITHUB_REF_NAME}"
+            version="${tag#v}"
+          elif [ -n "$REQUESTED_TAG" ]; then
+            tag="$REQUESTED_TAG"
             version="${tag#v}"
           else
             version=$(grep -oPm1 "(?<=<Version>)[^<]+" DomainServices.Core/DomainServices.Core.csproj)
@@ -70,6 +82,14 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Verify manual backfill tag exists
+        if: |
+          github.event_name == 'workflow_dispatch' &&
+          steps.tag_check.outputs.exists != 'true'
+        run: |
+          echo "::error::Manual Sleet backfill requires an existing tag. Create or push ${{ steps.version.outputs.tag }} first."
+          exit 1
+
       - name: Skip release (no version bump)
         if: |
           steps.tag_check.outputs.exists == 'true' &&
@@ -80,25 +100,29 @@ jobs:
       - name: Restore
         if: |
           steps.tag_check.outputs.exists == 'false' ||
-          github.event_name == 'push'
+          github.event_name == 'push' ||
+          github.event_name == 'workflow_dispatch'
         run: dotnet restore DomainServices.Core/DomainServices.Core.csproj
 
       - name: Build
         if: |
           steps.tag_check.outputs.exists == 'false' ||
-          github.event_name == 'push'
+          github.event_name == 'push' ||
+          github.event_name == 'workflow_dispatch'
         run: dotnet build DomainServices.Core/DomainServices.Core.csproj --configuration Release --no-restore
 
       - name: Test
         if: |
           steps.tag_check.outputs.exists == 'false' ||
-          github.event_name == 'push'
+          github.event_name == 'push' ||
+          github.event_name == 'workflow_dispatch'
         run: dotnet test DomainServices.slnx --configuration Release --no-build --verbosity normal
 
       - name: Pack
         if: |
           steps.tag_check.outputs.exists == 'false' ||
-          github.event_name == 'push'
+          github.event_name == 'push' ||
+          github.event_name == 'workflow_dispatch'
         run: dotnet pack DomainServices.Core/DomainServices.Core.csproj --configuration Release --no-build --output artifacts
 
       - name: Create and push tag (auto-release only)
@@ -114,17 +138,65 @@ jobs:
       - name: Publish to GitHub Packages
         if: |
           steps.tag_check.outputs.exists == 'false' ||
-          github.event_name == 'push'
+          github.event_name == 'push' ||
+          github.event_name == 'workflow_dispatch'
         run: |
           dotnet nuget push 'artifacts/*.nupkg' \
             --api-key "${{ secrets.GITHUB_TOKEN }}" \
             --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
             --skip-duplicate
 
+      - name: Install Sleet
+        if: |
+          steps.tag_check.outputs.exists == 'false' ||
+          github.event_name == 'push' ||
+          github.event_name == 'workflow_dispatch'
+        run: |
+          dotnet tool install --global sleet
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+
+      - name: Publish to Azure Blob static feed
+        if: |
+          steps.tag_check.outputs.exists == 'false' ||
+          github.event_name == 'push' ||
+          github.event_name == 'workflow_dispatch'
+        env:
+          SLEET_FEED_CONNECTION: ${{ secrets.SLEET_FEED_CONNECTION }}
+        run: |
+          if [ -z "$SLEET_FEED_CONNECTION" ]; then
+            echo "::error::SLEET_FEED_CONNECTION is required to publish the Azure Blob static feed."
+            exit 1
+          fi
+
+          trap 'rm -f sleet.json' EXIT
+
+          python - <<'PY'
+          import json
+          import os
+
+          config = {
+              "sources": [
+                  {
+                      "name": "plusteam-azure",
+                      "type": "azure",
+                      "container": "nuget",
+                      "connectionString": os.environ["SLEET_FEED_CONNECTION"],
+                  }
+              ]
+          }
+
+          with open("sleet.json", "w", encoding="utf-8") as output:
+              json.dump(config, output, indent=2)
+              output.write("\n")
+          PY
+
+          sleet push artifacts/*.nupkg --config sleet.json --verbosity minimal
+
       - name: Attach packages to GitHub Release
         if: |
           steps.tag_check.outputs.exists == 'false' ||
-          github.event_name == 'push'
+          github.event_name == 'push' ||
+          github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

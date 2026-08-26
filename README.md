@@ -60,28 +60,25 @@ Generic abstractions for service-oriented and domain-driven architectures in .NE
 
 ## Install
 
-Packages are published to **GitHub Packages** on every `v*` tag. To consume from a downstream project:
+Packages are published to the +team.ai Azure Blob static NuGet feed on every `v*` tag, so downstream projects restore without a GitHub account or package feed credential:
 
-1. Add the GitHub NuGet source (read access is anonymous for public repos, but `dotnet` still needs the source registered). One-time, project-local:
+```
+dotnet nuget add source "https://plusteamstorage.blob.core.windows.net/nuget/index.json" --name "plusteam-domainservices"
+```
 
-   ```
-   dotnet nuget add source "https://nuget.pkg.github.com/baranhakanozdemir/index.json" \
-     --name "baranhakanozdemir-github"
-   ```
+```
+dotnet add package DomainServices.Core --version 0.3.0
+```
 
-2. Install the package:
-
-   ```
-   dotnet add package DomainServices.Core --version 0.2.1
-   ```
-
-The signed `.nupkg` + `.snupkg` are also attached to each [GitHub Release](https://github.com/baranhakanozdemir/DomainServices/releases) for download.
+The package is also published to GitHub Packages and the signed `.nupkg` + `.snupkg` are attached to each [GitHub Release](https://github.com/baranhakanozdemir/DomainServices/releases) for download.
 
 ## Releasing
 
-Releases are automatic: when a PR that bumps `<Version>` in `DomainServices.Core.csproj` is merged into `main`, CI runs and on success the release workflow auto-creates the matching `vX.Y.Z` tag, packs the project, publishes to GitHub Packages, and creates the GH Release. **No version bump → no release.** Bundle as many feature PRs as you want; release only when you bump.
+The Release workflow publishes every releasable package to GitHub Packages and the Azure Blob static feed. The Sleet push requires the repository secret `SLEET_FEED_CONNECTION`, containing the Azure Storage connection string for the feed container. Sleet is run without overwrite flags, so a duplicate package version fails and the package version must be bumped. Run the workflow manually with an existing `v*` tag to backfill a package to the Azure feed.
 
-Manual override: push a `v*` tag from local for backfills or hotfixes — the same workflow handles it.
+Releases are automatic: when a PR that bumps `<Version>` in `DomainServices.Core.csproj` is merged into `main`, CI runs and on success the release workflow auto-creates the matching `vX.Y.Z` tag, packs the project, publishes to GitHub Packages and the Azure feed, and creates the GH Release. **No version bump -> no release.** Bundle as many feature PRs as you want; release only when you bump.
+
+Manual override: push a `v*` tag from local for hotfixes, or run the Release workflow manually with an existing `v*` tag to backfill a package to the Azure feed.
 
 ## License
 
