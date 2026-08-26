@@ -151,7 +151,9 @@ jobs:
           steps.tag_check.outputs.exists == 'false' ||
           github.event_name == 'push' ||
           github.event_name == 'workflow_dispatch'
-        run: dotnet tool install --global sleet
+        run: |
+          dotnet tool install --global sleet
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
 
       - name: Publish to Azure Blob static feed
         if: |
@@ -159,12 +161,36 @@ jobs:
           github.event_name == 'push' ||
           github.event_name == 'workflow_dispatch'
         env:
-          SLEET_FEED_TYPE: azure
-          SLEET_FEED_CONTAINER: nuget
-          SLEET_FEED_CONNECTIONSTRING: ${{ secrets.SLEET_FEED_CONNECTION }}
-          SLEET_FEED_BASEURI: https://plusteamstorage.blob.core.windows.net/nuget/
+          SLEET_FEED_CONNECTION: ${{ secrets.SLEET_FEED_CONNECTION }}
         run: |
-          sleet push artifacts/*.nupkg --config none --verbosity minimal
+          if [ -z "$SLEET_FEED_CONNECTION" ]; then
+            echo "::error::SLEET_FEED_CONNECTION is required to publish the Azure Blob static feed."
+            exit 1
+          fi
+
+          trap 'rm -f sleet.json' EXIT
+
+          python - <<'PY'
+          import json
+          import os
+
+          config = {
+              "sources": [
+                  {
+                      "name": "plusteam-azure",
+                      "type": "azure",
+                      "container": "nuget",
+                      "connectionString": os.environ["SLEET_FEED_CONNECTION"],
+                  }
+              ]
+          }
+
+          with open("sleet.json", "w", encoding="utf-8") as output:
+              json.dump(config, output, indent=2)
+              output.write("\n")
+          PY
+
+          sleet push artifacts/*.nupkg --config sleet.json --verbosity minimal
 
       - name: Attach packages to GitHub Release
         if: |
