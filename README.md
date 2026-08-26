@@ -63,7 +63,7 @@ Generic abstractions for service-oriented and domain-driven architectures in .NE
 Packages are published to the +team.ai Azure Blob static NuGet feed on every `v*` tag, so downstream projects restore without a GitHub account or package feed credential:
 
 ```
-dotnet nuget add source "https://plusteamfeed.blob.core.windows.net/nuget/v3/index.json" --name "plusteam-domainservices"
+dotnet nuget add source "https://plusteamstorage.blob.core.windows.net/nuget/index.json" --name "plusteam-domainservices"
 ```
 
 ```

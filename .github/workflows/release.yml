@@ -162,8 +162,7 @@ jobs:
           SLEET_FEED_TYPE: azure
           SLEET_FEED_CONTAINER: nuget
           SLEET_FEED_CONNECTIONSTRING: ${{ secrets.SLEET_FEED_CONNECTION }}
-          SLEET_FEED_FEEDSUBPATH: v3
-          SLEET_FEED_BASEURI: https://plusteamfeed.blob.core.windows.net/nuget/v3/
+          SLEET_FEED_BASEURI: https://plusteamstorage.blob.core.windows.net/nuget/
         run: |
           sleet push artifacts/*.nupkg --config none --verbosity minimal
 
