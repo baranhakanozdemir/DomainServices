@@ -139,6 +139,7 @@ public abstract class DomainService<TModel> : IDomainService<TModel>
                 $"EnterpriseId mismatch: cannot change tenant on update of '{id}'.");
         }
         model.EnterpriseId = existing.EnterpriseId;
+        KeepStoredServerOwnedFields(model, existing);
 
         var updated = await Repository.UpdateAsync(model, cancellationToken).ConfigureAwait(false);
         return BaseResponse<TModel>.Updated(updated);
@@ -199,6 +200,7 @@ public abstract class DomainService<TModel> : IDomainService<TModel>
                     continue;
                 }
                 model.EnterpriseId = existing.EnterpriseId;
+                KeepStoredServerOwnedFields(model, existing);
                 model.SetUpdate(userName);
             }
 
@@ -222,6 +224,24 @@ public abstract class DomainService<TModel> : IDomainService<TModel>
 
         var count = await Repository.SaveAsync(models, cancellationToken).ConfigureAwait(false);
         return BaseResponse<int>.Ok(count);
+    }
+
+    // An update never soft-deletes (that is DeleteAsync's job) and never rewrites a creation
+    // record that is already stored, whatever the caller sent. A Created / CreatedBy that was
+    // never written may still be filled in, so a consumer can repair a row missing them.
+    private static void KeepStoredServerOwnedFields(TModel model, TModel existing)
+    {
+        model.IsDeleted = existing.IsDeleted;
+
+        if (existing.Created != default)
+        {
+            model.Created = existing.Created;
+        }
+
+        if (!string.IsNullOrEmpty(existing.CreatedBy))
+        {
+            model.CreatedBy = existing.CreatedBy;
+        }
     }
 
     // -------- Validation hooks --------
