@@ -67,7 +67,7 @@ dotnet nuget add source "https://plusteamstorage.blob.core.windows.net/nuget/ind
 ```
 
 ```
-dotnet add package DomainServices.Core --version 0.3.0
+dotnet add package DomainServices.Core --version 0.3.1
 ```
 
 The package is also published to GitHub Packages and the signed `.nupkg` + `.snupkg` are attached to each [GitHub Release](https://github.com/baranhakanozdemir/DomainServices/releases) for download.
